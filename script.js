@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         popupDisplayEl.style.display = 'none'; 
 
-        mainGameAreaEl.style.filter = 'blur(3px)'; 
+        mainGameAreaEl.style.filter = 'none';
         optionsDisplayEl.innerHTML = `<button onclick="window.globalGameFunctions.chooseRole()">Play Again?</button>`;
     }
 
