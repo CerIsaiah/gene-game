@@ -178,7 +178,11 @@ document.addEventListener('DOMContentLoaded', () => {
         clearUI();
         const introText = `<h3>Welcome to the Genomic Governance Simulator!</h3>
         <p>This game is part of a larger exploration of how genomics is shaped by more than just science. It mirrors <strong>Exhibit 1: The Four-Corner Cycle</strong>, showing how funding (Drivers), rules (Gatekeepers), technology (Tools), and public views (Meanings) all influence each other.</p>
-        <p>You are about to step into <strong>Exhibit 4: The Simulator</strong> itself. As your chosen role, you'll make tough choices across three acts, experiencing these forces firsthand. Your decisions impact your budget, public support, and the ethical standing of your actions.</p>`;
+        <p>You are about to step into <strong>Exhibit 4: The Simulator</strong> itself. As your chosen role, you'll make tough choices across three acts, experiencing these forces firsthand. Your decisions impact your budget, public support, and the ethical standing of your actions.
+        
+        </p>
+        <p> Use to much money the game will end. Bad public support or ethical decisions will also end the game.
+        `;
         setScene(introText);
         optionsDisplayEl.innerHTML = `<button onclick="window.globalGameFunctions.act1_exhibitIntro()">Begin Act I</button>`;
         popupDisplayEl.style.display = 'none'; 
@@ -269,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
              title = "The Price of Ambition: Financial Ruin";
              narrative = "The financial burden became too great. Your role in shaping the genomic future ended not with a bang, but with the quiet closing of accounts. Money, public will, and ethical decisions proved too challenging to balance.";
         } else if (M.publicSupport < -2 && M.ethicalDecisions < -2) {
-            title = "The Unheard Warning: Societal Schism & Ethical Collapse";
+            title = "The Unheard Warning: Ethical Collapse";
             narrative = `As <strong>${roles[currentRole]}</strong>, your path led to a fractured society. A lack of public trust combined with severe ethical failings created deep divisions. The promise of genomics became a source of fear and resentment, and the crucial element of moral leadership was lost.`;
         } else if (M.money > 50 && M.publicSupport <= 0 && M.ethicalDecisions <= 0) {
             title = "The Gilded Cage: Profit Over People and Principles";
