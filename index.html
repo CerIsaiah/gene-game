@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genomic Governance Simulator</title>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .container { max-width: 800px; margin: auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1, h2, h3 { color: #5a5a5a; }
+        .metrics { margin-bottom: 20px; padding: 10px; background-color: #e9e9e9; border-radius: 4px; }
+        .metrics p { margin: 5px 0; }
+        .scene { margin-bottom: 15px; }
+        .visual { margin-bottom: 15px; font-style: italic; color: #777; }
+        .options button { display: block; margin: 5px 0; padding: 10px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%; text-align: left; }
+        .options button:hover { background-color: #0056b3; }
+        .popup { margin-top: 15px; padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; border-radius: 4px; }
+        #game-output { margin-top: 20px; }
+        #role-selection-area button { display: block; margin: 8px 0; padding: 10px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%; text-align: left; }
+        #role-selection-area button:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Genomic Governance Simulator</h1>
+
+        <div id="role-selection-area">
+            <h2>Welcome to Genomic Governance Simulator!</h2>
+            <p>Navigate tough policy choices or face dire consequences.</p>
+            <p>Starting Budget: $<span id="initial-metric-money">100</span>M</p>
+            <h3>Choose your role:</h3>
+            <button id="role-A-btn">A) Investor (Driver) – Bankroll breakthroughs; overspend and you'll be ousted.</button>
+            <button id="role-B-btn">B) Regulator (Gatekeeper) – Safeguard society; ignore risks and lives are at stake.</button>
+            <button id="role-C-btn">C) Scientist (Tool-User) – Pioneer the frontier; recklessness could be lethal.</button>
+            <button id="role-D-btn">D) Citizen (Meaning-Maker) – Rally public will; alienate the populace and lose influence.</button>
+            <div id="role-confirmation" style="display:none; margin-top: 15px; padding: 10px; background-color: #e9e9e9; border-radius: 4px;"></div>
+        </div>
+
+        <div id="main-game-area" style="display:none;">
+            <div class="metrics" id="metrics-display">
+                <p>Innovation: <span id="metric-innovation">0</span></p>
+                <p>Safety: <span id="metric-safety">0</span></p>
+                <p>Equity: <span id="metric-equity">0</span></p>
+                <p>Money: $<span id="metric-money">100</span>M</p>
+            </div>
+
+            <div id="scene-display" class="scene"></div>
+            <div id="visual-display" class="visual"></div>
+            <div id="options-display" class="options"></div>
+            <div id="popup-display" class="popup" style="display:none;"></div>
+            <div id="game-over-display" style="display:none; color: red; font-weight: bold;"></div>
+        </div>
+    </div>
+
+    <script type="text/python">
+# This is where your Python game logic will go, adapted for Pyodide.
+# You'''ll need to import modules and define functions to interact with the DOM.
+
+import js
+from pyodide.ffi import create_proxy
+
+# --- Global State ---
+metrics = {
+    'innovation': 0,
+    'safety': 0,
+    'equity': 0,
+    'money': 100
+}
+selected_role = None
+role_names = {
+    'A': "Investor (Driver)",
+    'B': "Regulator (Gatekeeper)",
+    'C': "Scientist (Tool-User)",
+    'D': "Citizen (Meaning-Maker)"
+}
+
+# --- DOM Elements (accessed via js.document.getElementById) ---
+# Example: metric_innovation_el = js.document.getElementById('metric-innovation')
+
+# --- Game Logic (Adapted) ---
+
+def update_metrics_display():
+    js.document.getElementById('metric-innovation').innerText = str(metrics['innovation'])
+    js.document.getElementById('metric-safety').innerText = str(metrics['safety'])
+    js.document.getElementById('metric-equity').innerText = str(metrics['equity'])
+    js.document.getElementById('metric-money').innerText = str(metrics['money'])
+
+def display_scene(scene_text, visual_text):
+    js.document.getElementById('scene-display').innerText = scene_text
+    js.document.getElementById('visual-display').innerText = f"[VISUAL: {visual_text}]"
+
+def display_options(options_dict, callback):
+    options_el = js.document.getElementById('options-display')
+    options_el.innerHTML = "" # Clear previous options
+
+    for key, opt_data in options_dict.items():
+        btn = js.document.createElement('button')
+        btn.innerText = f"{key}) {opt_data['desc']}"
+        btn.id = f"option-{key}"
+        
+        # Store effects data directly or pass key to callback
+        # Using a proxy for the event listener
+        def on_option_click(event, k=key): # Capture key
+            # js.console.log(f"Button {k} clicked") # For debugging
+            callback(k)
+
+        btn.addEventListener('click', create_proxy(on_option_click))
+        options_el.appendChild(btn)
+
+def show_popup(message):
+    popup_el = js.document.getElementById('popup-display')
+    popup_el.innerText = message
+    popup_el.style.display = 'block'
+
+def hide_popup():
+    js.document.getElementById('popup-display').style.display = 'none'
+    
+def game_over_js(message):
+    js.document.getElementById('game-over-display').innerText = f"Game Over: {message}"
+    js.document.getElementById('game-over-display').style.display = 'block'
+    js.document.getElementById('options-display').innerHTML = "" # Clear options
+    # Potentially disable further input here
+
+def check_failure_js():
+    if metrics['money'] < 0:
+        game_over_js("You went bankrupt and were fired!")
+        return True
+    if metrics['safety'] < -3:
+        game_over_js("A catastrophic safety failure leads to your death!")
+        return True
+    return False
+
+# --- Placeholder for game flow control ---
+# This will need to be carefully structured, likely using states or async functions
+# to handle user input pauses.
+
+# Example of how you might start chapter 1, scenario 1
+current_chapter_scenarios = []
+current_scenario_index = 0
+current_chapter_title = ""
+
+def process_choice(choice_key):
+    global current_scenario_index # Allow modification
+
+    hide_popup() # Hide previous popup if any
+    
+    scen = current_chapter_scenarios[current_scenario_index]
+    if choice_key not in scen['options']:
+        show_popup(f"Invalid choice. Please select from the available options.") # Should not happen with buttons
+        return
+
+    eff = scen['options'][choice_key]['effects']
+    for k, v in eff.items():
+        if k in metrics: # Ensure key exists
+             metrics[k] += v
+    
+    update_metrics_display()
+    
+    changes = [f"{k.capitalize()} {v:+d}" for k,v in eff.items()]
+    show_popup(f"You chose {choice_key}. Changes: { ', '.join(changes)}.")
+
+    if check_failure_js():
+        return
+
+    current_scenario_index += 1
+    if current_scenario_index < len(current_chapter_scenarios):
+        play_scenario(current_chapter_scenarios[current_scenario_index])
+    else:
+        # Move to next chapter or epilogue
+        js.console.log(f"End of {current_chapter_title}")
+        # Here you would call the next chapter function e.g. chapter2_js()
+        if current_chapter_title == "Chapter I – Promise & Hype":
+            chapter2_js()
+        elif current_chapter_title == "Chapter II – Reality Check":
+            chapter3_js()
+        elif current_chapter_title == "Chapter III – Alternatives & Agency":
+            epilogue_js(selected_role) # Pass the selected role
+        else:
+            js.console.log("Game finished or unknown chapter.")
+
+
+def play_scenario(scen):
+    display_scene(scen['scene'], scen['visual'])
+    display_options(scen['options'], process_choice)
+
+
+def chapter_js(title, scenarios_data):
+    global current_chapter_scenarios, current_scenario_index, current_chapter_title
+    current_chapter_title = title
+    current_chapter_scenarios = scenarios_data
+    current_scenario_index = 0
+    
+    js.document.getElementById('scene-display').innerText = f"=== {title} ===" # Display chapter title
+    # js.console.log(f"Starting {title} with {len(scenarios_data)} scenarios")
+    
+    if current_scenario_index < len(current_chapter_scenarios):
+        play_scenario(current_chapter_scenarios[current_scenario_index])
+    else:
+        js.console.log(f"No scenarios in {title}")
+
+
+# --- CHAPTER DEFINITIONS (adapted from app.py) ---
+# You'''ll need to copy your scenario data here.
+# Example:
+def chapter1_js():
+    scenarios = [
+        {
+            'scene': "A neon-lit expo hall hums with demos of living sculptures—utopia glimmers but whispers of inequality echo.",
+            'visual': "Stylized DNA helix glowing over a corporate skyline",
+            'options': {
+                'A': {'desc': "Invest $40M in GeneSys: speed to market, but centralizes data.", 'effects': {'innovation': +2, 'equity': -1, 'money': -40}},
+                'B': {'desc': "Fund $25M for the CRISPR Cooperative: boosts small labs, slower ROI.", 'effects': {'innovation': +1, 'equity': +2, 'money': -25}},
+                'C': {'desc': "Allocate $35M to Vault Initiative: safety-first, stifles creativity.", 'effects': {'innovation': -1, 'safety': +2, 'money': -35}}
+            }
+        },
+        {
+            'scene': "At the startup alley, AI-driven design firms pitch edible vaccines—promise meets skepticism.",
+            'visual': "Holographic vaccine vial overlaid with code",
+            'options': {
+                'A': {'desc': "Back the AI firm with $30M: high novelty, ethical concerns.", 'effects': {'innovation': +2, 'equity': -2, 'money': -30}},
+                'B': {'desc': "Support community-driven edible vaccine trials: equitable but data risks.", 'effects': {'innovation': +1, 'equity': +1, 'safety': -1, 'money': -20}},
+                'C': {'desc': "Invest in regulation tech: monitors all trials, costly bureaucracy.", 'effects': {'safety': +2, 'innovation': -1, 'money': -15}}
+            }
+        },
+        {
+            'scene': "A private gala: VIPs toast to 'designer babies'—the moral line blurs.",
+            'visual': "Champagne flutes etched with genetic code",
+            'options': {
+                'A': {'desc': "Join the summit: influence agenda, cost $20M.", 'effects': {'equity': +1, 'money': -20}},
+                'B': {'desc': "Fund investigative journalists: expose risks, slow hype.", 'effects': {'safety': +1, 'innovation': -1, 'money': -10}},
+                'C': {'desc': "Stay silent: preserve relationships, let ethics slide.", 'effects': {'equity': -1, 'safety': -1, 'money': 0}}
+            }
+        }
+    ]
+    chapter_js("Chapter I – Promise & Hype", scenarios)
+
+def chapter2_js():
+    scenarios = [
+        {
+            'scene': "A clandestine trial backfires: off-target edits spark protests.",
+            'visual': "Newspaper headline 'CRISPR Baby Scandal'",
+            'options': {
+                'A': {'desc': "Apologize & pause all trials: rebuild trust.", 'effects': {'safety': +1, 'innovation': -1}},
+                'B': {'desc': "Blame rogue actors & continue: maintain funds.", 'effects': {'equity': -1, 'money': +10, 'safety': -2}},
+                'C': {'desc': "Set up public review panels: costly but inclusive.", 'effects': {'safety': +2, 'equity': +1, 'money': -15}}
+            }
+        },
+        {
+            'scene': "Data leak reveals private genomic profiles sold to insurers.",
+            'visual': "Leaked database rows floating over a city map",
+            'options': {
+                'A': {'desc': "Implement emergency data protections: heavy investment.", 'effects': {'safety': +2, 'money': -25}},
+                'B': {'desc': "Ignore leak: prioritize profits, risk lawsuits.", 'effects': {'equity': -2, 'money': +20}},
+                'C': {'desc': "Offer compensation & transparency report: slow & expensive.", 'effects': {'equity': +2, 'safety': +1, 'money': -30}}
+            }
+        },
+        {
+            'scene': "A viral documentary accuses industry of neo-colonial gene grabs.",
+            'visual': "Protest signs reading 'Our Genes, Our Choice'",
+            'options': {
+                'A': {'desc': "Launch global equity fund: $30M to affected regions.", 'effects': {'equity': +2, 'money': -30}},
+                'B': {'desc': "Discredit film with PR campaign: costs $15M, may backfire.", 'effects': {'innovation': -1, 'equity': -1, 'money': -15}},
+                'C': {'desc': "Invite filmmakers to policy talks: builds dialogue.", 'effects': {'equity': +1, 'safety': +1, 'money': -10}}
+            }
+        }
+    ]
+    chapter_js("Chapter II – Reality Check", scenarios)
+
+def chapter3_js():
+    scenarios = [
+        {
+            'scene': "Biohackers showcase DIY gene cures in a repurposed warehouse.",
+            'visual': "Hands pipetting in a community lab",
+            'options': {
+                'A': {'desc': "Mandate open-source toolkits: high innovation risk.", 'effects': {'innovation': +2, 'safety': -2, 'equity': +2}},
+                'B': {'desc': "Enforce licensing & audits: stifles small labs.", 'effects': {'safety': +2, 'equity': -1, 'innovation': -1, 'money': +5}},
+                'C': {'desc': "Fund citizen-scientist teams: costs $25M.", 'effects': {'innovation': +1, 'equity': +1, 'money': -25}}
+            }
+        },
+        {
+            'scene': "A hackathon mutates microbes accidentally—biohazard alert.",
+            'visual': "Warning icon over petri dish",
+            'options': {
+                'A': {'desc': "Deploy emergency containment: $20M rapid response.", 'effects': {'safety': +2, 'money': -20}},
+                'B': {'desc': "Shelter in place orders: trust issues.", 'effects': {'equity': -1, 'safety': -1}},
+                'C': {'desc': "Partner with military labs: high cost, high security.", 'effects': {'safety': +3, 'money': -40}}
+            }
+        },
+        {
+            'scene': "Community backlash demands a recall of untested gene therapies.",
+            'visual': "Town hall meeting with angry residents",
+            'options': {
+                'A': {'desc': "Agree to moratorium & hearings.", 'effects': {'equity': +2, 'innovation': -2}},
+                'B': {'desc': "Use legal injunctions to block recall.", 'effects': {'equity': -2, 'money': +10}},
+                'C': {'desc': "Offer sliding-scale access: balances needs.", 'effects': {'equity': +1, 'safety': +1, 'money': -15}}
+            }
+        }
+    ]
+    chapter_js("Chapter III – Alternatives & Agency", scenarios)
+    
+def epilogue_js(role): # Role can now be used if desired
+    scene_el = js.document.getElementById('scene-display')
+    visual_el = js.document.getElementById('visual-display')
+    options_el = js.document.getElementById('options-display')
+    popup_el = js.document.getElementById('popup-display')
+
+    options_el.innerHTML = "" # Clear options
+    popup_el.style.display = 'none'
+
+    epilogue_content = f"=== Epilogue – Your 2050 ===\n\n"
+    epilogue_content += f"Final Scores → Innovation: {metrics['innovation']}, Safety: {metrics['safety']}, Equity: {metrics['equity']}, Budget: ${metrics['money']}M\n\n"
+
+    inv, saf, eq = metrics['innovation'], metrics['safety'], metrics['equity']
+    future = ""
+    vignette = ""
+
+    if saf > inv and saf > eq:
+        future = "Life as Data"
+        vignette = ("In 2050, genomes stream into archives as currency. Citizens trade privacy for health predictions; oversight reigns supreme.")
+    elif eq > inv and eq > saf:
+        future = "Ethics by Committee"
+        vignette = ("In 2050, global ethics councils deliberate every edit. Progress slows under the weight of consensus.")
+    else:
+        if inv >= eq:
+            future = "Biohacker Commons"
+            vignette = ("In 2050, DIY labs fuel a biotech renaissance. Community trust balances rampant innovation.")
+        else:
+            future = "Corporate CRISPR City"
+            vignette = ("In 2050, biotech giants control gene markets. Prosperity glitters, but inequality deepens.")
+
+    epilogue_content += f"→ **{future}**\n"
+    epilogue_content += f"{vignette}\n\n" # ({len(vignette.split())} words) - word count might be tricky with Pyodide/JS directly
+    
+    scene_el.innerText = epilogue_content
+    visual_el.innerText = "[VISUAL: Futuristic city silhouette overlaid with DNA pattern]"
+    # You could add a final message or a restart button here.
+    # For "Which single decision would you change...?" you might add another text area or similar.
+
+# Initial setup on script load
+def handle_role_selection(event, role_key):
+    global selected_role
+    selected_role = role_key
+
+    role_confirmation_el = js.document.getElementById('role-confirmation')
+    role_confirmation_el.innerText = f"You selected: {role_names[selected_role]}."
+    role_confirmation_el.style.display = 'block'
+
+    # js.setTimeout(create_proxy(lambda: (
+    #     js.document.getElementById('role-selection-area').style.display = 'none',
+    #     js.document.getElementById('main-game-area').style.display = 'block',
+    #     chapter1_js()
+    # )), 1500) # Delay to show confirmation briefly, then proceed
+
+    # For immediate start after role selection (no timeout):
+    js.document.getElementById('role-selection-area').style.display = 'none'
+    js.document.getElementById('main-game-area').style.display = 'block'
+    js.document.getElementById('scene-display').innerText = "" # Clear any welcome messages from role area
+    chapter1_js()
+
+
+def main_js():
+    update_metrics_display() # Show initial metrics (money mainly for role selection screen)
+    js.document.getElementById('initial-metric-money').innerText = str(metrics['money'])
+
+    # Setup role selection buttons
+    role_buttons_data = {
+        "role-A-btn": "A",
+        "role-B-btn": "B",
+        "role-C-btn": "C",
+        "role-D-btn": "D"
+    }
+    for btn_id, role_key_val in role_buttons_data.items():
+        btn_el = js.document.getElementById(btn_id)
+        # btn_el.addEventListener('click', create_proxy(lambda e, rk=role_key_val: handle_role_selection(e, rk)))
+        # Need to be careful with lambda in loops for create_proxy if not careful about capturing
+        
+        # Create a unique proxy for each button to correctly capture role_key_val
+        proxy = create_proxy(handle_role_selection)
+        # partial_proxy = lambda event, rk=role_key_val: proxy(event, rk) # This lambda would make it harder for pyodide to map
+        
+        # Instead of lambda, we can pass extra args to create_proxy if the target function accepts them,
+        # or bind them if create_proxy itself supports it, or use a wrapper.
+        # The simplest is to make `handle_role_selection` only take `event` and deduce role from event.target.id
+        # Or, set a property on the button or use a closure correctly.
+        
+        # Let's adjust handle_role_selection to take just event and figure out role from button id
+        # This is cleaner. OR pass role_key_val as an argument directly to the event listener if Pyodide handles it.
+        # The `create_proxy(handle_role_selection, role_key_val)` style might work or `btn_el.addEventListener('click', create_proxy(lambda e: handle_role_selection(e, role_key_val)))`
+        # The provided `on_option_click` in `display_options` had `k=key` in lambda which is good.
+        
+        # Re-doing event listener setup for roles:
+        # Each button will call handle_role_selection with its specific role_key.
+        # Using a factory function to create the event handler with the correct role_key captured.
+        def create_handler(rk_capture):
+            return lambda event: handle_role_selection(event, rk_capture)
+
+        btn_el.addEventListener('click', create_proxy(create_handler(role_key_val)))
+
+
+    # The game starts after role selection, so no direct call to chapter1_js() here.
+    # The initial welcome message is in the HTML's role-selection-area.
+    # js.document.getElementById('scene-display').innerText = "Welcome to Genomic Governance Simulator! Please choose a role to begin."
+
+
+async def setup_and_run():
+    pyodide = await js.loadPyodide()
+    # You can install packages if needed, e.g., await pyodide.loadPackage("numpy")
+    # Make Python functions available to JS if needed (less common for this structure)
+    # pyodide.globals.set("my_python_func", my_python_func)
+    
+    # Mount the Python script content into Pyodide's virtual filesystem if you want to keep it separate
+    # Or, just run the code directly as we are doing by placing it in the <script type="text/python">
+    
+    # Run the main game logic
+    main_js()
+
+setup_and_run()
+
+    </script>
+</body>
+</html> 
